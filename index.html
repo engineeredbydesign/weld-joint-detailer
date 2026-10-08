@@ -248,7 +248,7 @@ main{position:relative;min-height:0;min-width:0;background:var(--bg);padding:12p
         <button id="copyBtn">Copy image</button>
       </div>
       <h2>CAD</h2>
-      <p class="hint">DXF (R12, millimetres) with linework, hatching, dimensions and the weld symbol on separate layers. It downloads inside a .zip.</p>
+      <p class="hint">DXF (R12, millimetres) with linework, hatching, dimensions and the weld symbol on separate layers.<span id="dxfZipNote" hidden> On claude.ai it downloads inside a .zip.</span></p>
       <div class="btnrow">
         <button id="dxfBtn" class="primary">Download DXF</button>
         <button id="svgBtn">Download SVG</button>
@@ -724,14 +724,19 @@ async function pngBlob(){const G=build(S.doc),sc=makeScene(S.doc,G),b=sc.bounds,
   const {svg,W,H}=svgString(sc,S.prefs.color||'colour',G,k);const img=new Image();img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);await img.decode();
   const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);
   return await new Promise(r=>c.toBlob(r,'image/png'))}
-async function save(filename,data,label){if(!S.dl){toast("Downloads aren't available in this view");return}
+function browserSave(filename,data){const blob=data instanceof Blob?data:new Blob([data],{type:filename.endsWith('.svg')?'image/svg+xml':'application/octet-stream'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000)}
+async function save(filename,data,label){
+  if(!S.dl){try{browserSave(filename,data);toast(label+' downloaded')}catch(e){toast(label+" couldn't be saved")}return}
   try{await S.dl.save({filename,data});toast(label+' saved')}catch(e){if(e&&e.code==='declined')return;toast(e&&e.code==='rate_limited'?'A save is already waiting for you to confirm':label+" couldn't be saved")}}
 $('#pngBtn').onclick=async()=>{try{await save(safeName()+'.png',await pngBlob(),'PNG')}catch(e){toast("The image couldn't be created")}};
 $('#svgBtn').onclick=()=>{const G=build(S.doc),sc=makeScene(S.doc,G);save(safeName()+'.svg',svgString(sc,S.prefs.color||'colour',G,null).svg,'SVG')};
 $('#copyBtn').onclick=async()=>{try{const b=await pngBlob();await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);toast('Image copied. Paste it into your document.')}
   catch(e){toast("Copying isn't allowed here. Use Download PNG instead.")}};
-$('#dxfBtn').onclick=()=>{const G=build(S.doc),sc=makeScene(S.doc,G),dxf=toDXF(sc,G);save(safeName()+'-dxf.zip',zip1(safeName()+'.dxf',new TextEncoder().encode(dxf)),'DXF')};
-function updateDlUI(){const ok=!!S.dl;['#pngBtn','#dxfBtn','#svgBtn'].forEach(s=>$(s).disabled=!ok);$('#dlNote').hidden=ok}
+$('#dxfBtn').onclick=()=>{const G=build(S.doc),sc=makeScene(S.doc,G),dxf=toDXF(sc,G);
+  if(S.dl)save(safeName()+'-dxf.zip',zip1(safeName()+'.dxf',new TextEncoder().encode(dxf)),'DXF');
+  else save(safeName()+'.dxf',new Blob([dxf],{type:'application/dxf'}),'DXF')};
+function updateDlUI(){['#pngBtn','#dxfBtn','#svgBtn'].forEach(s=>$(s).disabled=false);$('#dlNote').hidden=true;$('#dxfZipNote').hidden=!S.dl}
 
 function dxfText(s){return s.replace(/°/g,'%%d').replace(/⌀/g,'%%c').replace(/[^\x20-\x7e%]/g,ch=>'\\U+'+ch.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0'))}
 function toDXF(sc,G){const o=[],w=(c,v)=>{o.push(String(c),String(v))},f=v=>(Math.round(v*10000)/10000).toString();
