@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weld Joint Detailer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#E4E8EA; --panel:#F6F7F7; --ink:#1A2126; --muted:#5D6870; --line:#C5CCD1;
+  --field:#FFFFFF; --amber:#D9822B; --amber-ink:#8A3D0C; --amber-soft:#F7DCBD;
+  --steel:#3E4C56; --focus:#1D5AA6;
+  --ui:"Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --cond:"Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11161A; --panel:#1A2126; --ink:#E5EAED; --muted:#98A4AC; --line:#33404A;
+    --field:#11171B; --amber-soft:#4A2E17; --steel:#AFC0CB; --focus:#6FA5EE;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11161A; --panel:#1A2126; --ink:#E5EAED; --muted:#98A4AC; --line:#33404A;
+  --field:#11171B; --amber-soft:#4A2E17; --steel:#AFC0CB; --focus:#6FA5EE;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 var(--ui);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);min-height:52px}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}
+.brand svg{flex:none}
+.brand h1{font:600 19px/1 var(--cond);margin:0;letter-spacing:.01em;white-space:nowrap}
+.docname{color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.spacer{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:6px 12px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+button{font:500 14px var(--ui);color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--steel)}
+button.primary{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+button.ghost{background:transparent}
+button:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.app{flex:1;display:grid;grid-template-columns:350px 1fr;min-height:0}
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs button{flex:1;border:0;border-radius:0;background:transparent;font:600 15px var(--cond);color:var(--muted);padding:11px 6px 9px;border-bottom:3px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--amber)}
+.pane{overflow:auto;padding:14px 16px 28px;flex:1;min-height:0}
+.pane[hidden]{display:none}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+h2{font:600 16px/1.2 var(--cond);margin:18px 0 8px;color:var(--steel)}
+h2:first-child{margin-top:2px}
+.row{display:grid;grid-template-columns:1fr 104px;align-items:center;gap:8px;margin:7px 0}
+.row.wide{grid-template-columns:1fr}
+.row label,.lbl{color:var(--ink);font-size:14px}
+.row small,.hint{color:var(--muted);font-size:12.5px;display:block}
+input,select{font:15px var(--ui);color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:5px;padding:6px 8px;width:100%;min-width:0}
+input[type=number]{text-align:right;font-variant-numeric:tabular-nums}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--amber-ink);margin:0}
+.check{display:flex;align-items:center;gap:9px;margin:9px 0;font-size:14px}
+.unit{position:relative}
+.unit::after{content:attr(data-u);position:absolute;right:28px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:12px;pointer-events:none}
+.unit input{padding-right:46px}
+.weldcard{border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin:8px 0;background:var(--field)}
+.weldcard .head{font-weight:600;font-size:14px;margin-bottom:2px}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.item{border:1px solid var(--line);border-radius:7px;background:var(--field);padding:8px 10px}
+.item.cur{border-color:var(--amber);box-shadow:inset 3px 0 0 var(--amber)}
+.item .t{font-weight:600;font-size:14.5px}
+.item .m{color:var(--muted);font-size:12.5px}
+.item .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tag{font-size:12px;background:var(--amber-soft);color:var(--ink);border-radius:10px;padding:1px 8px}
+.item .acts{display:flex;gap:6px;margin-top:6px}
+.item .acts button{padding:4px 10px;font-size:13px}
+.dimrow{display:grid;grid-template-columns:auto 1fr auto auto;gap:6px;align-items:center}
+.dimrow .k{font-size:12.5px;color:var(--muted);min-width:62px}
+.dimrow button{padding:4px 8px;font-size:13px}
+.pickbar{position:absolute;left:12px;right:12px;top:12px;background:var(--ink);color:var(--panel);border-radius:7px;padding:8px 12px;font-size:14px;display:flex;gap:10px;align-items:center;z-index:3}
+.pickbar[hidden]{display:none}
+.pickbar button{background:transparent;color:var(--panel);border-color:rgba(255,255,255,.4);padding:4px 10px}
+main{position:relative;min-height:0;min-width:0;background:var(--bg);padding:12px}
+.sheet{position:relative;width:100%;height:100%;background:#fff;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+#svg{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#svg.picking{cursor:crosshair}
+#svg .hit{stroke:transparent;cursor:pointer}
+#svg .hit:hover,#svg .hit.sel{stroke:rgba(217,130,43,.55)}
+#view3d{position:absolute;inset:0;display:none;touch-action:none;cursor:grab}
+#view3d canvas{display:block;width:100%;height:100%}
+.sheet.is3d #svg{display:none}
+.sheet.is3d #view3d{display:block}
+.cornerinfo{position:absolute;right:10px;bottom:8px;font-size:12px;color:#5D6870;background:rgba(255,255,255,.85);padding:2px 6px;border-radius:4px;pointer-events:none}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--panel);padding:9px 14px;border-radius:7px;font-size:14px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:10;max-width:90vw}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.sync{font-size:12.5px;color:var(--muted);margin-top:4px}
+.empty{color:var(--muted);font-size:14px;padding:14px 4px}
+[hidden]{display:none!important}
+.locknote{background:var(--amber-soft);border-radius:6px;padding:7px 10px;font-size:13px;margin-bottom:10px}
+.locknote[hidden]{display:none}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:46% 1fr}
+  main{order:-1;padding:8px}
+  aside{border-right:0;border-top:1px solid var(--line)}
+  .docname{display:none}
+  header{padding:6px 10px}
+}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg width="26" height="22" viewBox="0 0 26 22" aria-hidden="true">
+      <path d="M1 20 L1 9 L9 9 L12 18 L12 20 Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M25 20 L25 9 L17 9 L14 18 L14 20 Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M8 9 Q13 3 18 9 L14 18 L12 18 Z" fill="#D9822B"/>
+    </svg>
+    <h1>Weld joint detailer</h1>
+  </div>
+  <div class="docname" id="hdrName"></div>
+  <div class="spacer"></div>
+  <div class="seg" role="group" aria-label="View">
+    <button id="v2d" aria-pressed="true">2D</button>
+    <button id="v3d" aria-pressed="false">3D</button>
+  </div>
+  <button id="fitBtn" class="ghost" title="Fit drawing to view">Fit</button>
+</header>
+
+<div class="app">
+  <aside>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="joint" aria-selected="true">Joint</button>
+      <button role="tab" data-tab="welds" aria-selected="false">Welds</button>
+      <button role="tab" data-tab="dims" aria-selected="false">Dimensions</button>
+      <button role="tab" data-tab="library" aria-selected="false">Library</button>
+      <button role="tab" data-tab="export" aria-selected="false">Export</button>
+    </div>
+
+    <!-- JOINT -->
+    <div class="pane" data-pane="joint">
+      <div class="locknote" id="lockNote1" hidden>This drawing is locked. Unlock it below to make changes.</div>
+      <fieldset class="lockable">
+        <h2>Drawing</h2>
+        <div class="row wide"><label for="f_name">Name</label><input id="f_name" data-k="name" type="text" autocomplete="off"></div>
+        <div class="row wide"><label for="f_tags">Tags <small>Comma separated, e.g. 135, butt, 12mm</small></label><input id="f_tags" data-k="tags" type="text" autocomplete="off"></div>
+        <h2>Weld type</h2>
+        <div class="row wide"><select id="f_type" data-k="type" aria-label="Weld type">
+          <option value="fillet">Fillet weld (T-joint)</option>
+          <option value="square">Square butt</option>
+          <option value="singleV">Single-V butt</option>
+          <option value="doubleV">Double-V butt</option>
+          <option value="singleBevel">Single-bevel butt</option>
+          <option value="doubleBevel">Double-bevel (K) butt</option>
+        </select></div>
+        <h2>Plates</h2>
+        <div class="row"><label for="f_t1"><span data-show="butt">Plate 1 thickness t1</span><span data-show="fillet">Base plate thickness t1</span></label><div class="unit" data-u="mm"><input id="f_t1" data-k="t1" type="number" step="0.5" inputmode="decimal"></div></div>
+        <div class="row"><label for="f_t2"><span data-show="butt">Plate 2 thickness t2</span><span data-show="fillet">Stem plate thickness t2</span></label><div class="unit" data-u="mm"><input id="f_t2" data-k="t2" type="number" step="0.5" inputmode="decimal"></div></div>
+        <div class="row" data-show="butt"><label for="f_gap">Root gap b</label><div class="unit" data-u="mm"><input id="f_gap" data-k="gap" type="number" step="0.5" min="0" inputmode="decimal"></div></div>
+        <div class="row" data-show="rf"><label for="f_rf">Root face c</label><div class="unit" data-u="mm"><input id="f_rf" data-k="rootFace" type="number" step="0.5" min="0" inputmode="decimal"></div></div>
+        <div class="row" data-show="V"><label for="f_ang">Included angle α</label><div class="unit" data-u="°"><input id="f_ang" data-k="angle" type="number" step="5" inputmode="decimal"></div></div>
+        <div class="row" data-show="bevel"><label for="f_bev">Bevel angle β</label><div class="unit" data-u="°"><input id="f_bev" data-k="bevel" type="number" step="5" inputmode="decimal"></div></div>
+        <div class="row" data-show="butt"><label for="f_hilo">Plate 2 offset (hi-lo)<small>Moves plate 2 up or down</small></label><div class="unit" data-u="mm"><input id="f_hilo" data-k="hilo" type="number" step="0.5" inputmode="decimal"></div></div>
+        <div class="row" data-show="butt"><label for="f_len">Plate length shown</label><div class="unit" data-u="mm"><input id="f_len" data-k="plateLen" type="number" step="5" inputmode="decimal"></div></div>
+        <div class="row" data-show="fillet"><label for="f_bw">Base plate width shown</label><div class="unit" data-u="mm"><input id="f_bw" data-k="baseW" type="number" step="5" inputmode="decimal"></div></div>
+        <div class="row" data-show="fillet"><label for="f_sh">Stem height shown</label><div class="unit" data-u="mm"><input id="f_sh" data-k="stemH" type="number" step="5" inputmode="decimal"></div></div>
+        <label class="check"><input type="checkbox" data-k="mirror"> Mirror joint</label>
+      </fieldset>
+      <h2>Status</h2>
+      <label class="check"><input type="checkbox" id="f_lock"> Lock drawing (finished)</label>
+    </div>
+
+    <!-- WELDS -->
+    <div class="pane" data-pane="welds" hidden>
+      <div class="locknote" id="lockNote2" hidden>This drawing is locked.</div>
+      <fieldset class="lockable">
+        <h2>Process</h2>
+        <div class="row wide"><select data-k="process" id="f_proc" aria-label="Welding process (BS EN ISO 4063)">
+          <option value="111">111 · MMA (manual metal arc)</option>
+          <option value="135">135 · MAG, solid wire</option>
+          <option value="136">136 · MAG, flux-cored</option>
+          <option value="138">138 · MAG, metal-cored</option>
+          <option value="141">141 · TIG</option>
+          <option value="121">121 · Submerged arc</option>
+        </select></div>
+        <div id="filletSection" data-show="fillet">
+          <h2>Fillet welds</h2>
+          <div class="row"><label for="f_sides">Welded sides</label><select id="f_sides" data-k="sides"><option value="both">Both sides</option><option value="one">Arrow side only</option></select></div>
+          <div class="row"><label for="f_fm">Size shown as, this drawing<small id="globalHint"></small></label><select id="f_fm" data-k="filletMode"><option value="inherit">Use global</option><option value="a">Throat a</option><option value="z">Leg z</option></select></div>
+          <div id="weldCards"></div>
+        </div>
+        <h2>Passes</h2>
+        <label class="check"><input type="checkbox" data-k="showPasses"> Show numbered passes</label>
+        <div data-show="butt">
+          <div class="row wide"><label for="f_pf"><span data-show="dbl">Front side beads per layer</span><span data-show="single">Beads per layer</span><small>Root first, e.g. 1,2,3 gives 6 passes in 3 layers</small></label><input id="f_pf" data-k="passesFront" type="text" inputmode="numeric" autocomplete="off"></div>
+          <div class="row wide" data-show="dbl"><label for="f_pb">Back side beads per layer</label><input id="f_pb" data-k="passesBack" type="text" inputmode="numeric" autocomplete="off"></div>
+        </div>
+      </fieldset>
+      <h2>Global default</h2>
+      <div class="row"><label for="g_fm">Fillet size shown as<small>Applies to every drawing set to "Use global"</small></label><select id="g_fm"><option value="a">Throat a</option><option value="z">Leg z</option></select></div>
+    </div>
+
+    <!-- DIMS -->
+    <div class="pane" data-pane="dims" hidden>
+      <div class="locknote" id="lockNote3" hidden>This drawing is locked.</div>
+      <fieldset class="lockable">
+        <h2>Display</h2>
+        <label class="check"><input type="checkbox" data-k="showDims"> Show dimensions</label>
+        <label class="check"><input type="checkbox" data-k="showSymbol"> Show weld symbol (BS EN ISO 2553)</label>
+        <div class="row"><label for="f_lab">Dimension labels</label><select id="f_lab" data-k="labels"><option value="symbol">Symbols (t1, b, α)</option><option value="value">Values</option></select></div>
+        <h2>Standard dimensions</h2>
+        <div id="autoList"></div>
+        <h2>Your dimensions</h2>
+        <p class="hint">Tap an edge, then a second edge. Parallel edges give a distance, others an angle. Tap the same edge twice for its length. Dimensions follow the joint when you change it.</p>
+        <div class="btnrow"><button id="addDimBtn" class="primary">Add dimension</button></div>
+        <div id="dimList" class="list"></div>
+      </fieldset>
+    </div>
+
+    <!-- LIBRARY -->
+    <div class="pane" data-pane="library" hidden>
+      <div class="btnrow">
+        <button id="newBtn" class="primary">New drawing</button>
+        <button id="dupBtn">Duplicate</button>
+      </div>
+      <div class="row wide"><input id="search" type="search" placeholder="Search names and tags" aria-label="Search library" autocomplete="off"></div>
+      <div class="sync" id="syncNote">Saved on this device</div>
+      <div id="libList" class="list"></div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="pane" data-pane="export" hidden>
+      <h2>Colour</h2>
+      <div class="seg" role="group" aria-label="Export colour">
+        <button id="cColour" aria-pressed="true">Colour</button>
+        <button id="cBW" aria-pressed="false">Black and white</button>
+      </div>
+      <h2>Image</h2>
+      <p class="hint">Print resolution PNG, about 2400 px on the long side. Paste it into Word, Excel or a WPS form.</p>
+      <div class="btnrow">
+        <button id="pngBtn" class="primary">Download PNG</button>
+        <button id="copyBtn">Copy image</button>
+      </div>
+      <h2>CAD</h2>
+      <p class="hint">DXF (R12, millimetres) with linework, hatching, dimensions and the weld symbol on separate layers. It downloads inside a .zip.</p>
+      <div class="btnrow">
+        <button id="dxfBtn" class="primary">Download DXF</button>
+        <button id="svgBtn">Download SVG</button>
+      </div>
+      <p class="hint" id="dlNote" hidden>Downloads aren't available in this view. Open the page from claude.ai to save files.</p>
+    </div>
+  </aside>
+
+  <main>
+    <div class="sheet" id="sheet">
+      <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="view3d"></div>
+      <div class="pickbar" id="pickBar" hidden><span id="pickText">Tap the first edge</span><span class="spacer"></span><button id="pickCancel">Done</button></div>
+      <div class="cornerinfo" id="cornerInfo">mm</div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const DEG=Math.PI/180, R2=Math.SQRT2;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const num=(v,d)=>{const n=parseFloat(v);return isFinite(n)?n:d};
+const fmt=v=>{const r=Math.round(v*10)/10;return String(Object.is(r,-0)?0:r)};
+const uid=()=>'d'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+/* ---------- state ---------- */
+const TYPE_NAMES={fillet:'Fillet weld',square:'Square butt',singleV:'Single-V butt',doubleV:'Double-V butt',singleBevel:'Single-bevel butt',doubleBevel:'Double-bevel (K) butt'};
+function defaults(){return{id:uid(),name:'Untitled joint',tags:[],updated:Date.now(),locked:false,
+  type:'singleV',t1:12,t2:12,gap:2,rootFace:2,angle:60,bevel:45,hilo:0,plateLen:50,baseW:100,stemH:50,
+  sides:'both',filletMode:'inherit',welds:[{a:5,mode:'inherit',passes:'1'},{a:5,mode:'inherit',passes:'1'}],
+  passesFront:'1,1,2',passesBack:'1',showPasses:true,process:'135',mirror:false,labels:'symbol',
+  showDims:true,showSymbol:true,hideAuto:{},dims:[]}}
+function normalize(d){const b=defaults();const o=Object.assign(b,d||{});
+  if(!Array.isArray(o.tags))o.tags=[];if(!Array.isArray(o.dims))o.dims=[];if(!o.hideAuto)o.hideAuto={};
+  if(!Array.isArray(o.welds)||o.welds.length<2)o.welds=b.welds;return o}
+const S={doc:null,lib:{},prefs:{filletMode:'a',color:'colour'},view:'2d',vb:null,userView:false,pick:null,picking:false,G:null,db:null,uid:null,dl:null,dimVals:[]};
+
+/* ---------- geometry helpers ---------- */
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1]], add=(a,b)=>[a[0]+b[0],a[1]+b[1]], mul=(a,k)=>[a[0]*k,a[1]*k];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1], cross=(a,b)=>a[0]*b[1]-a[1]*b[0], len=a=>Math.hypot(a[0],a[1]);
+const unit=a=>{const l=len(a);return l<1e-9?[0,0]:[a[0]/l,a[1]/l]};
+function centroid(P){let A=0,cx=0,cy=0;for(let i=0;i<P.length;i++){const p=P[i],q=P[(i+1)%P.length],c=p[0]*q[1]-q[0]*p[1];A+=c;cx+=(p[0]+q[0])*c;cy+=(p[1]+q[1])*c}
+  if(Math.abs(A)<1e-9){let x=0,y=0;P.forEach(p=>{x+=p[0];y+=p[1]});return[x/P.length,y/P.length]}return[cx/(3*A),cy/(3*A)]}
+function bez(a,c,b,n){const o=[];for(let i=0;i<=n;i++){const t=i/n,u=1-t;o.push([u*u*a[0]+2*u*t*c[0]+t*t*b[0],u*u*a[1]+2*u*t*c[1]+t*t*b[1]])}return o}
+function dedupe(P){const o=[];for(const p of P){const l=o[o.length-1];if(!l||Math.hypot(l[0]-p[0],l[1]-p[1])>1e-6)o.push(p)}
+  if(o.length>1&&Math.hypot(o[0][0]-o[o.length-1][0],o[0][1]-o[o.length-1][1])<1e-6)o.pop();return o}
+function clipGE(P,dir,o,val){const f=p=>(p[0]-o[0])*dir[0]+(p[1]-o[1])*dir[1]-val;const out=[];
+  for(let i=0;i<P.length;i++){const A=P[i],B=P[(i+1)%P.length],fa=f(A),fb=f(B);if(fa>=0)out.push(A);
+    if((fa>=0)!==(fb>=0)){const t=fa/(fa-fb);out.push([A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t])}}return dedupe(out)}
+function lineX(a1,a2,b1,b2){const r=sub(a2,a1),s=sub(b2,b1),den=cross(r,s);if(Math.abs(den)<1e-9)return null;const t=cross(sub(b1,a1),s)/den;return add(a1,mul(r,t))}
+function hatchLines(P,angDeg,sp){const a=angDeg*DEG,c=Math.cos(a),s=Math.sin(a);
+  const R=P.map(p=>[p[0]*c+p[1]*s,-p[0]*s+p[1]*c]);const ys=R.map(p=>p[1]);const ymin=Math.min(...ys),ymax=Math.max(...ys);const out=[];
+  for(let y=Math.floor(ymin/sp)*sp+sp*0.5;y<ymax;y+=sp){const xs=[];
+    for(let i=0;i<R.length;i++){const A=R[i],B=R[(i+1)%R.length];if((A[1]<=y)!==(B[1]<=y))xs.push(A[0]+(y-A[1])*(B[0]-A[0])/(B[1]-A[1]))}
+    xs.sort((p,q)=>p-q);for(let j=0;j+1<xs.length;j+=2){const bk=x=>[x*c-y*s,x*s+y*c];out.push([bk(xs[j]),bk(xs[j+1])])}}
+  return out}
+function parseSpec(s){return String(s||'').split(/[^0-9]+/).map(x=>parseInt(x,10)).filter(n=>n>0&&n<=12).slice(0,12)}
+function makePasses(region,o,u,v,depth,spec,start){const out=[];if(!spec.length||region.length<3||depth<=0)return out;
+  /* work in (v,u): v across the joint, u up from the root. Each layer's top is a row of arcs, one per bead,
+     and the next layer is built on those arcs, so beads stack the way a run sequence is sketched. */
+  const Q=region.map(p=>{const d=sub(p,o);return[dot(d,v),dot(d,u)]});
+  const span=x=>{const us=[];for(let i=0;i<Q.length;i++){const A=Q[i],B=Q[(i+1)%Q.length];if((A[0]<=x)!==(B[0]<=x))us.push(A[1]+(x-A[0])*(B[1]-A[1])/(B[0]-A[0]))}
+    if(us.length<2)return null;us.sort((p,q)=>p-q);let best=null;
+    for(let i=0;i+1<us.length;i+=2){if(!best||us[i+1]-us[i]>best[1]-best[0])best=[us[i],us[i+1]]}return best};
+  const nL=spec.length,h=depth/nL,layers=[];
+  for(let k=0;k<nL;k++){let band=Q;if(k>0)band=clipGE(band,[0,1],[0,0],k*h);if(k<nL-1)band=clipGE(band,[0,-1],[0,0],-(k+1)*h);
+    if(band.length<3){layers.push(null);continue}const vs=band.map(p=>p[0]),v0=Math.min(...vs),v1=Math.max(...vs),nb=spec[k],w=(v1-v0)/nb;
+    const bulge=Math.min(0.42*h,0.32*w);layers.push({v0,v1,nb,w,bulge,base:(k+1)*h-bulge*0.45})}
+  const surf=(k,x,sp)=>{if(k<0)return sp[0];if(k>=nL-1)return sp[1];const L=layers[k];let s=-Infinity;
+    if(L&&x>=L.v0-1e-9&&x<=L.v1+1e-9){const j=clamp(Math.floor((x-L.v0)/L.w),0,L.nb-1),c=L.v0+(j+0.5)*L.w,t=(x-c)/(L.w/2);s=L.base+L.bulge*(1-t*t)}
+    return Math.min(sp[1],Math.max(s,surf(k-1,x,sp)))};
+  let n=start;const N=40;
+  for(let k=0;k<nL;k++){const L=layers[k];if(!L)continue;
+    for(let j=0;j<L.nb;j++){const a=L.v0+j*L.w,b=a+L.w,top=[],bot=[];
+      for(let i=0;i<=N;i++){const x=clamp(a+(b-a)*i/N,a+1e-7,b-1e-7),sp=span(x);if(!sp)continue;
+        const lo=surf(k-1,x,sp),hi=surf(k,x,sp);if(hi-lo>1e-4){top.push([x,hi]);bot.push([x,lo])}}
+      if(top.length<2)continue;
+      const pts=dedupe([...top,...bot.reverse()].map(([x,y])=>add(o,add(mul(v,x),mul(u,y)))));
+      if(pts.length>=3)out.push({pts,n:n++})}}
+  return out}
+function effMode(doc,i){const w=doc.welds[i];if(w&&w.mode!=='inherit')return w.mode;if(doc.filletMode!=='inherit')return doc.filletMode;return S.prefs.filletMode||'a'}
+
+/* ---------- build joint geometry ---------- */
+function plateL(kind,t,c,ang,L,xr,y0){const x0=xr-L,T=Math.tan(ang*DEG);
+  if(kind==='square')return[[x0,y0],[xr,y0],[xr,y0+t],[x0,y0+t]];
+  if(kind==='V'){const b=(t-c)*T;return[[x0,y0],[xr,y0],[xr,y0+c],[xr-b,y0+t],[x0,y0+t]]}
+  const h=(t-c)/2,b=h*T;return[[x0,y0],[xr-b,y0],[xr,y0+h],[xr,y0+h+c],[xr-b,y0+t],[x0,y0+t]]}
+const FACE={square:1,V:1,X:2}, BEVUP={V:2,X:3};
+function build(d){
+  const G={parts:[],welds:[],butt:d.type!=='fillet',info:{}};
+  if(G.butt){
+    const t1=clamp(num(d.t1,12),0.5,500),t2=clamp(num(d.t2,12),0.5,500),g=clamp(num(d.gap,0),0,100),L=clamp(num(d.plateLen,50),5,3000),hl=clamp(num(d.hilo,0),-500,500);
+    const kinds={square:['square','square'],singleV:['V','V'],doubleV:['X','X'],singleBevel:['square','V'],doubleBevel:['square','X']}[d.type];
+    const isV=d.type==='singleV'||d.type==='doubleV';
+    const ang=isV?clamp(num(d.angle,60),10,120)/2:clamp(num(d.bevel,45),5,70);
+    const cc=t=>clamp(num(d.rootFace,0),0,Math.max(0,t-0.2));
+    const p1=plateL(kinds[0],t1,cc(t1),ang,L,-g/2,0);
+    const p2=plateL(kinds[1],t2,cc(t2),ang,L,-g/2,hl).map(p=>[-p[0],p[1]]);
+    G.parts.push({id:'P1',name:'Plate 1',pts:p1,ref:0,mir:false},{id:'P2',name:'Plate 2',pts:p2,ref:0,mir:true});
+    const lp=p1.slice(1,-1),rp=p2.slice(1,-1);const lb=lp[0],lt=lp[lp.length-1],rb=rp[0],rt=rp[rp.length-1];
+    const tm=Math.max(t1,t2),dbl=d.type==='doubleV'||d.type==='doubleBevel';
+    const hCap=clamp(0.12*tm,0.8,3),eCap=clamp(0.12*tm,0.8,3),hRoot=dbl?hCap:clamp(0.07*tm,0.4,1.5),eRoot=dbl?eCap:clamp(0.08*tm,0.4,2);
+    const cS=[lt[0]-eCap,lt[1]],cE=[rt[0]+eCap,rt[1]];
+    const cap=bez(cS,[(cS[0]+cE[0])/2,(cS[1]+cE[1])/2+2*hCap],cE,18);
+    const rS=[rb[0]+eRoot,rb[1]],rE=[lb[0]-eRoot,lb[1]];
+    const root=bez(rS,[(rS[0]+rE[0])/2,(rS[1]+rE[1])/2-2*hRoot],rE,14);
+    const poly=dedupe([...cap,...rp.slice().reverse(),...root,...lp]);
+    const ytop=Math.max(lt[1],rt[1]),ybot=Math.min(lb[1],rb[1]);let passes=[];
+    if(d.showPasses){
+      if(dbl){const ym=d.type==='doubleV'?t1/2:hl+t2/2;
+        const fr=clipGE(poly,[0,1],[0,ym],0),bk=clipGE(poly,[0,-1],[0,ym],0);
+        passes=makePasses(fr,[0,ym],[0,1],[1,0],ytop-ym,parseSpec(d.passesFront),1);
+        passes=passes.concat(makePasses(bk,[0,ym],[0,-1],[1,0],ym-ybot,parseSpec(d.passesBack),passes.length+1));
+      }else passes=makePasses(poly,[0,ybot],[0,1],[1,0],ytop-ybot,parseSpec(d.passesFront),1);
+    }
+    G.welds.push({pts:poly,passes});
+    G.target=[(cS[0]+cE[0])/2,(cS[1]+cE[1])/2+hCap];
+    G.sym={shape:{square:'square',singleV:'V',doubleV:'V',singleBevel:'bevel',doubleBevel:'bevel'}[d.type],sides:dbl?'both':'arrow'};
+    Object.assign(G.info,{t1,t2,g,c:cc(Math.min(t1,t2)),kinds,dbl,hRoot,hCap,isV,ang});
+  }else{
+    const t1=clamp(num(d.t1,12),0.5,500),t2=clamp(num(d.t2,10),0.5,500),W=clamp(num(d.baseW,100),5,5000),H=clamp(num(d.stemH,50),5,5000);
+    G.parts.push({id:'P1',name:'Base plate',pts:[[-W/2,0],[W/2,0],[W/2,t1],[-W/2,t1]],ref:0,mir:false});
+    G.parts.push({id:'P2',name:'Stem plate',pts:[[-t2/2,t1],[t2/2,t1],[t2/2,t1+H],[-t2/2,t1+H]],ref:1,mir:false});
+    const nS=d.sides==='both'?2:1;let n=1;
+    for(let i=0;i<nS;i++){const w=d.welds[i],a=clamp(num(w.a,5),0.5,100),z=a*R2,s=i===0?1:-1,C=[s*t2/2,t1];
+      const pts=s>0?[C,[C[0]+z,t1],[C[0],t1+z]]:[C,[C[0],t1+z],[C[0]-z,t1]];
+      const u=[s/R2,1/R2],v=[-s/R2,1/R2];
+      const passes=d.showPasses?makePasses(pts,C,u,v,a,parseSpec(w.passes),n):[];n+=passes.length;
+      G.welds.push({pts,passes,corner:C,u,a,z,mode:effMode(d,i),i})}
+    const a0=clamp(num(d.welds[0].a,5),0.5,100)*R2;
+    G.target=[t2/2+a0/2,t1+a0/2];G.sym={shape:'fillet',sides:nS===2?'both':'arrow'};Object.assign(G.info,{t1,t2});
+  }
+  if(d.mirror){const m=p=>[-p[0],p[1]];
+    G.parts.forEach(p=>{p.pts=p.pts.map(m);p.mir=!p.mir});
+    G.welds.forEach(w=>{w.pts=w.pts.map(m);w.passes.forEach(q=>q.pts=q.pts.map(m));if(w.corner){w.corner=m(w.corner);w.u=[-w.u[0],w.u[1]]}});
+    G.target=m(G.target)}
+  G.parts.forEach(p=>{const n=p.pts.length,A=p.pts[p.ref],B=p.pts[(p.ref+1)%n];p.hatch=Math.atan2(B[1]-A[1],B[0]-A[0])/DEG+(p.mir?-45:45)});
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;[...G.parts,...G.welds].forEach(o=>o.pts.forEach(p=>{x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1])}));
+  const ext=Math.max(x1-x0,y1-y0);
+  G.box={x0,y0,x1,y1};G.m={ext,th:clamp(ext*0.028,0.8,40),hs:clamp(ext*0.02,0.5,8),lw:ext*0.0028};
+  return G}
+
+/* ---------- scene (shared by screen, PNG, SVG and DXF) ---------- */
+function Scene(){this.items=[]}
+Scene.prototype.poly=function(pts,layer,o={}){this.items.push({k:'poly',pts,layer,closed:!!o.closed,fill:o.fill||null,w:o.w||0.5})};
+Scene.prototype.line=function(a,b,layer,w){this.poly([a,b],layer,{w:w||0.45})};
+Scene.prototype.segs=function(segs,layer,w){if(segs.length)this.items.push({k:'segs',segs,layer,w})};
+Scene.prototype.text=function(x,y,s,h,layer,o={}){this.items.push({k:'text',x,y,s:String(s),h,layer,anchor:o.anchor||'start',rot:o.rot||0,va:o.va||'base'})};
+Scene.prototype.dash=function(a,b,layer,dl,gl){const L=len(sub(b,a)),u=unit(sub(b,a));for(let s=0;s<L;s+=dl+gl){this.line(add(a,mul(u,s)),add(a,mul(u,Math.min(L,s+dl))),layer,0.5)}};
+function arrow(sc,tip,dir,al,layer){const u=unit(dir),p=[-u[1],u[0]],b=sub(tip,mul(u,al));sc.poly([tip,add(b,mul(p,al*0.19)),sub(b,mul(p,al*0.19))],layer,{closed:true,fill:'arrow'})}
+const tw=(s,h)=>String(s).length*h*0.56;
+
+function drawLinear(sc,P1,P2,E1,E2,n,label,th){
+  const g=th*0.35,ov=th*0.5;
+  if(len(sub(P1,E1))>g)sc.line(add(E1,mul(n,g)),add(P1,mul(n,ov)),'DIM');
+  if(len(sub(P2,E2))>g)sc.line(add(E2,mul(n,g)),add(P2,mul(n,ov)),'DIM');
+  const L=len(sub(P2,P1));if(L<1e-6)return;const u=unit(sub(P2,P1)),al=th*0.85;
+  if(L>2.6*al){sc.line(P1,P2,'DIM');arrow(sc,P1,mul(u,-1),al,'DIM');arrow(sc,P2,u,al,'DIM')}
+  else{sc.line(sub(P1,mul(u,al*1.8)),add(P2,mul(u,al*1.8)),'DIM');arrow(sc,P1,u,al,'DIM');arrow(sc,P2,mul(u,-1),al,'DIM')}
+  let th0=Math.atan2(u[1],u[0])/DEG;if(th0>90.01)th0-=180;if(th0<=-89.99)th0+=180;
+  const up=[-Math.sin(th0*DEG),Math.cos(th0*DEG)],ud=[Math.cos(th0*DEG),Math.sin(th0*DEG)],sg=dot(n,up)>=0?1:-1;
+  const W=tw(label,th);let pos=mul(add(P1,P2),0.5);
+  if(W+al*2.2>L){const far=dot(sub(P2,P1),ud)>=0?P2:P1;pos=add(far,mul(ud,al*2+W/2))}
+  pos=add(pos,mul(up,sg>0?th*0.35:-th*1.3));
+  sc.text(pos[0],pos[1],label,th,'DIM',{anchor:'middle',rot:th0})}
+function edgeOf(G,r){if(!r)return null;const p=G.parts.find(q=>q.id===r.p);if(!p)return null;const n=p.pts.length;if(r.e<0||r.e>=n)return null;return{A:p.pts[r.e],B:p.pts[(r.e+1)%n],part:p}}
+function measure(G,dim){return drawDim(null,G,dim,'',S.G?S.G.m.th:1)}
+function drawDim(sc,G,dim,label,th){
+  const k=dim.k;
+  if(k==='len'){const E=edgeOf(G,dim.a);if(!E)return null;const L=len(sub(E.B,E.A));if(L<1e-6)return null;
+    const u=unit(sub(E.B,E.A));let n=[-u[1],u[0]];const c=centroid(E.part.pts),mid=mul(add(E.A,E.B),0.5);if(dot(sub(mid,c),n)<0)n=mul(n,-1);if((dim.side||1)<0)n=mul(n,-1);
+    const off=th*(dim.off||2.2);if(sc)drawLinear(sc,add(E.A,mul(n,off)),add(E.B,mul(n,off)),E.A,E.B,n,label||fmt(L),th);return L}
+  if(k==='dist'){const A=edgeOf(G,dim.a),B=edgeOf(G,dim.b);if(!A||!B)return null;
+    let d=unit(sub(A.B,A.A));if(len(d)<0.5)d=unit(sub(B.B,B.A));if(len(d)<0.5)d=[0,1];
+    const dB=unit(sub(B.B,B.A));if(len(dB)>0.5&&Math.abs(cross(d,dB))>0.03)return null;
+    const s=p=>dot(sub(p,A.A),d),side=dim.side||1,pick=(p,q)=>side>0?(s(p)>=s(q)?p:q):(s(p)<=s(q)?p:q);
+    const eA=pick(A.A,A.B),eB=pick(B.A,B.B);const s0=side>0?Math.max(s(eA),s(eB))+th*(dim.off||2.2):Math.min(s(eA),s(eB))-th*(dim.off||2.2);
+    const PA=add(A.A,mul(d,s0)),PB=add(B.A,mul(d,s0-s(B.A)));const val=len(sub(PB,PA));
+    if(sc)drawLinear(sc,PA,PB,eA,eB,mul(d,side),label||fmt(val),th);return val}
+  if(k==='ang'||k==='angv'){const A=edgeOf(G,dim.a);if(!A)return null;let O,dA,dB,rA,rB;
+    if(k==='angv'){O=A.A[1]<=A.B[1]?A.A:A.B;const F=O===A.A?A.B:A.A;dA=unit(sub(F,O));dB=[0,1];rA=len(sub(F,O));rB=0}
+    else{const B=edgeOf(G,dim.b);if(!B)return null;O=lineX(A.A,A.B,B.A,B.B);if(!O)return null;
+      if(len(sub(O,mul(add(A.A,A.B),0.5)))>G.m.ext*6)return null;
+      dA=unit(sub(mul(add(A.A,A.B),0.5),O));dB=unit(sub(mul(add(B.A,B.B),0.5),O));
+      rA=Math.max(len(sub(A.A,O)),len(sub(A.B,O)));rB=Math.max(len(sub(B.A,O)),len(sub(B.B,O)))}
+    if(len(dA)<0.5||len(dB)<0.5)return null;
+    const val=Math.acos(clamp(dot(dA,dB),-1,1))/DEG;if(!sc)return val;
+    const r=Math.max(rA,rB)+th*1.6,g=th*0.35;
+    if(r>rA+g)sc.line(add(O,mul(dA,rA+g)),add(O,mul(dA,r+th*0.5)),'DIM');
+    if(r>rB+g)sc.line(add(O,mul(dB,rB+g)),add(O,mul(dB,r+th*0.5)),'DIM');
+    const a1=Math.atan2(dA[1],dA[0]);let da=Math.atan2(dB[1],dB[0])-a1;while(da>Math.PI)da-=2*Math.PI;while(da<=-Math.PI)da+=2*Math.PI;
+    const arc=[];for(let i=0;i<=24;i++){const t=a1+da*i/24;arc.push([O[0]+r*Math.cos(t),O[1]+r*Math.sin(t)])}sc.poly(arc,'DIM',{w:0.45});
+    const sg=Math.sign(da)||1,tg=t=>[-Math.sin(t),Math.cos(t)],al=th*0.85;
+    if(Math.abs(da)*r>2.6*al){arrow(sc,arc[0],mul(tg(a1),-sg),al,'DIM');arrow(sc,arc[24],mul(tg(a1+da),sg),al,'DIM')}
+    const am=a1+da/2,tp=add(O,mul([Math.cos(am),Math.sin(am)],r+th*1.1));
+    sc.text(tp[0],tp[1],label||(fmt(val)+'°'),th,'DIM',{anchor:'middle',va:'mid'});return val}
+  if(k==='leader'){if(!sc)return null;const at=dim.at,to=dim.to,sx=to[0]>=at[0]?1:-1;
+    sc.line(at,to,'DIM');arrow(sc,at,sub(at,to),th*0.85,'DIM');const sh=add(to,[sx*th*1.2,0]);sc.line(to,sh,'DIM');
+    sc.text(sh[0]+sx*th*0.3,sh[1],label,th,'DIM',{anchor:sx>0?'start':'end',va:'mid'});return null}
+  if(k==='throat'){const w=G.welds.find(q=>q.i===dim.w);if(!w)return null;if(!sc)return w.a;
+    const H=add(w.corner,mul(w.u,w.a));if(w.mode==='a'){sc.line(w.corner,H,'DIM',0.45);arrow(sc,H,w.u,th*0.7,'DIM')}
+    const to=add(H,[(w.u[0]>0?1:-1)*th*2.6,th*2.6]);drawDim(sc,G,{k:'leader',at:H,to},label,th);return w.a}
+  return null}
+function autoDims(d,G){const L=[],sym=d.labels==='symbol',I=G.info;
+  if(G.butt){const n1=G.parts[0].pts.length,n2=G.parts[1].pts.length,[k1,k2]=I.kinds;
+    L.push({key:'t1',name:'Plate 1 thickness',k:'dist',a:{p:'P1',e:0},b:{p:'P1',e:n1-2},side:-1,label:sym?'t1':fmt(I.t1)});
+    L.push({key:'t2',name:'Plate 2 thickness',k:'dist',a:{p:'P2',e:0},b:{p:'P2',e:n2-2},side:-1,label:sym?'t2':fmt(I.t2)});
+    if(I.g>0){const extra=k1==='X'||k2==='X'?(I.t1-I.c)/2+I.hCap:I.hRoot;
+      L.push({key:'b',name:'Root gap',k:'dist',a:{p:'P1',e:FACE[k1]},b:{p:'P2',e:FACE[k2]},side:-1,off:2.2+extra/G.m.th,label:sym?'b':fmt(I.g)})}
+    if(d.type!=='square'&&I.c>0){const pid=I.isV?'P1':'P2',kk=I.isV?k1:k2,E=edgeOf(G,{p:pid,e:FACE[kk]});
+      if(E){const at=mul(add(E.A,E.B),0.5),sx=at[0]<=0?-1:1;
+        L.push({key:'c',name:'Root face',k:'leader',at,to:[at[0]+sx*G.m.th*4,G.box.y0-G.m.th*3.2],label:sym?'c':fmt(I.c)})}}
+    if(I.isV)L.push({key:'ang',name:'Included angle',k:'ang',a:{p:'P1',e:BEVUP[k1]},b:{p:'P2',e:BEVUP[k2]},label:sym?'α':fmt(d.angle)+'°'});
+    else if(d.type!=='square')L.push({key:'ang',name:'Bevel angle',k:'angv',a:{p:'P2',e:BEVUP[k2]},label:sym?'β':fmt(d.bevel)+'°'});
+  }else{
+    L.push({key:'t1',name:'Base plate thickness',k:'dist',a:{p:'P1',e:0},b:{p:'P1',e:2},side:-1,label:sym?'t1':fmt(I.t1)});
+    L.push({key:'t2',name:'Stem plate thickness',k:'dist',a:{p:'P2',e:1},b:{p:'P2',e:3},side:1,label:sym?'t2':fmt(I.t2)});
+    G.welds.forEach(w=>{const v=w.mode==='a'?w.a:w.z;L.push({key:'w'+w.i,name:(w.i===0?'Arrow side':'Other side')+' fillet size',k:'throat',w:w.i,label:sym?w.mode:w.mode+fmt(v)})})}
+  return L}
+
+function drawSymbol(sc,d,G,th,top){
+  const T=G.target,yRef=top+th*3.2,dir=T[0]>=-1e-6?1:-1,E=[T[0]+dir*Math.max(th*2,(yRef-T[1])*0.55),yRef];
+  sc.line(T,E,'SYMBOL',0.5);arrow(sc,T,sub(T,E),th*0.95,'SYMBOL');
+  const Lr=th*12,R=[E[0]+dir*Lr,yRef];sc.line(E,R,'SYMBOL',0.6);
+  const both=G.sym.sides==='both';if(!both)sc.dash([Math.min(E[0],R[0]),yRef-th*0.75],[Math.max(E[0],R[0]),yRef-th*0.75],'SYMBOL',th*0.7,th*0.45);
+  const hS=th*1.35,sx=E[0]+dir*Lr*0.5;
+  const shape=(sg)=>{const y0=yRef+(sg<0&&!both?-th*0.75:0)*0,yb=yRef;const Y=h=>yb+sg*h;
+    switch(G.sym.shape){
+      case 'fillet':sc.poly([[sx-hS/2,yb],[sx-hS/2,Y(hS)],[sx+hS/2,yb]],'SYMBOL',{closed:true,w:0.6});break;
+      case 'square':sc.line([sx-hS*0.25,yb],[sx-hS*0.25,Y(hS)],'SYMBOL',0.6);sc.line([sx+hS*0.25,yb],[sx+hS*0.25,Y(hS)],'SYMBOL',0.6);break;
+      case 'V':sc.poly([[sx-hS*0.55,Y(hS)],[sx,yb],[sx+hS*0.55,Y(hS)]],'SYMBOL',{w:0.6});break;
+      case 'bevel':sc.line([sx-hS*0.3,yb],[sx-hS*0.3,Y(hS)],'SYMBOL',0.6);sc.line([sx-hS*0.3,yb],[sx+hS*0.45,Y(hS)],'SYMBOL',0.6);break}};
+  shape(1);if(both)shape(-1);
+  if(G.sym.shape==='fillet'){G.welds.forEach(w=>{const sg=w.i===0?1:-1,v=w.mode==='a'?w.a:w.z;
+    sc.text(sx-hS*0.8,sg>0?yRef+th*0.25:yRef-th*1.25,w.mode+fmt(v),th,'SYMBOL',{anchor:'end'})})}
+  const f=th*0.95;sc.line(R,add(R,[dir*f,f]),'SYMBOL',0.6);sc.line(R,add(R,[dir*f,-f]),'SYMBOL',0.6);
+  sc.text(R[0]+dir*th*1.35,yRef,d.process,th,'SYMBOL',{anchor:dir>0?'start':'end',va:'mid'})}
+
+function makeScene(d,G){
+  const sc=new Scene(),th=G.m.th;
+  G.parts.forEach(p=>{sc.segs(hatchLines(p.pts,p.hatch,G.m.hs),'HATCH',0.35);sc.poly(p.pts,'OUTLINE',{closed:true,w:1.25})});
+  G.welds.forEach(w=>{const ps=d.showPasses&&w.passes.length;sc.poly(w.pts,'WELD',{closed:true,fill:ps?'pale':'solid',w:0.7});
+    if(ps)w.passes.forEach(q=>{sc.poly(q.pts,'PASS',{closed:true,w:0.5});const c=centroid(q.pts);
+      let bx0=1e9,bx1=-1e9,by0=1e9,by1=-1e9;q.pts.forEach(p=>{bx0=Math.min(bx0,p[0]);bx1=Math.max(bx1,p[0]);by0=Math.min(by0,p[1]);by1=Math.max(by1,p[1])});
+      const h=clamp(Math.min(bx1-bx0,by1-by0)*0.55,th*0.35,th*0.9);sc.text(c[0],c[1],q.n,h,'PASSNUM',{anchor:'middle',va:'mid'})})});
+  S.dimVals=[];
+  if(d.showDims){autoDims(d,G).forEach(a=>{if(!d.hideAuto[a.key])drawDim(sc,G,a,a.label,th)});
+    d.dims.forEach((dm,i)=>{const v=drawDim(sc,G,dm,dm.label||'',th);S.dimVals[i]=v})}
+  else d.dims.forEach((dm,i)=>{S.dimVals[i]=measure(G,dm)});
+  let top=G.box.y1;sc.items.forEach(it=>{if(it.layer==='DIM'){if(it.k==='poly')it.pts.forEach(p=>top=Math.max(top,p[1]));if(it.k==='text')top=Math.max(top,it.y+it.h)}});
+  if(d.showSymbol)drawSymbol(sc,d,G,th,top);
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;const inc=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)};
+  sc.items.forEach(it=>{if(it.k==='poly')it.pts.forEach(p=>inc(p[0],p[1]));else if(it.k==='segs')it.segs.forEach(s=>{inc(s[0][0],s[0][1]);inc(s[1][0],s[1][1])});
+    else{const W=tw(it.s,it.h),c=Math.cos(it.rot*DEG),s=Math.sin(it.rot*DEG),ax=it.anchor==='middle'?-W/2:it.anchor==='end'?-W:0,ay=it.va==='mid'?-it.h/2:0;
+      [[ax,ay],[ax+W,ay],[ax,ay+it.h],[ax+W,ay+it.h]].forEach(([u,v])=>inc(it.x+u*c-v*s,it.y+u*s+v*c))}});
+  const mg=th*1.5;sc.bounds={x0:x0-mg,y0:y0-mg,x1:x1+mg,y1:y1+mg};return sc}
+
+/* ---------- SVG output ---------- */
+const PAL={colour:{OUTLINE:'#1B2024',HATCH:'#6585A0',WELD:'#8A3D0C',PASS:'#8A3D0C',PASSNUM:'#4F2205',DIM:'#1D5AA6',SYMBOL:'#1B2024',fill:{solid:'#D9822B',pale:'#F7DCBD'}},
+  bw:{OUTLINE:'#000',HATCH:'#000',WELD:'#000',PASS:'#000',PASSNUM:'#000',DIM:'#000',SYMBOL:'#000',fill:{solid:'#000',pale:'#DDDDDD'}}};
+const fx=v=>(Math.round(v*1000)/1000).toString();
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function svgBody(sc,mode,lw){const P=PAL[mode];let o='';
+  for(const it of sc.items){const col=P[it.layer];
+    if(it.k==='poly'){const dd='M'+it.pts.map(p=>fx(p[0])+','+fx(-p[1])).join('L')+(it.closed?'Z':'');
+      const fill=it.fill==='arrow'?col:it.fill?P.fill[it.fill]:'none';
+      o+=`<path d="${dd}" fill="${fill}" stroke="${it.fill==='arrow'?'none':col}" stroke-width="${fx(lw*it.w)}" stroke-linejoin="round" stroke-linecap="round"/>`}
+    else if(it.k==='segs'){o+=`<path d="${it.segs.map(s=>'M'+fx(s[0][0])+','+fx(-s[0][1])+'L'+fx(s[1][0])+','+fx(-s[1][1])).join('')}" stroke="${col}" stroke-width="${fx(lw*it.w)}" fill="none"/>`}
+    else{const tr=it.rot?` transform="rotate(${fx(-it.rot)} ${fx(it.x)} ${fx(-it.y)})"`:'';
+      o+=`<text x="${fx(it.x)}" y="${fx(-it.y)}" font-size="${fx(it.h)}" fill="${col}" text-anchor="${it.anchor}"${it.va==='mid'?' dy="0.36em"':''}${tr} font-family="Arial, Helvetica, sans-serif">${esc(it.s)}</text>`}}
+  return o}
+function svgString(sc,mode,G,pxPerMm){const b=sc.bounds,w=b.x1-b.x0,h=b.y1-b.y0;
+  const W=pxPerMm?Math.round(w*pxPerMm):null,H=pxPerMm?Math.round(h*pxPerMm):null;
+  return{svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${fx(b.x0)} ${fx(-b.y1)} ${fx(w)} ${fx(h)}"${W?` width="${W}" height="${H}"`:''}><rect x="${fx(b.x0)}" y="${fx(-b.y1)}" width="${fx(w)}" height="${fx(h)}" fill="#fff"/>${svgBody(sc,mode,G.m.lw)}</svg>`,W,H}}
+
+/* ---------- screen render ---------- */
+const svgEl=$('#svg');
+function render(){
+  const d=S.doc,G=build(d);S.G=G;const sc=makeScene(d,G);S.scene=sc;
+  let body=svgBody(sc,'colour',G.m.lw);
+  if(S.picking){const hw=G.m.th*0.9;G.parts.forEach(p=>p.pts.forEach((A,i)=>{const B=p.pts[(i+1)%p.pts.length];if(len(sub(B,A))<1e-6)return;
+    const sel=S.pick&&S.pick.p===p.id&&S.pick.e===i;
+    body+=`<line class="hit${sel?' sel':''}" data-p="${p.id}" data-e="${i}" x1="${fx(A[0])}" y1="${fx(-A[1])}" x2="${fx(B[0])}" y2="${fx(-B[1])}" stroke-width="${fx(hw)}" stroke-linecap="round"/>`}))}
+  svgEl.innerHTML=body;
+  const b=sc.bounds;S.fitVB=[b.x0,-b.y1,b.x1-b.x0,b.y1-b.y0];
+  if(!S.userView)S.vb=S.fitVB.slice();applyVB();
+  svgEl.classList.toggle('picking',S.picking);
+  $('#cornerInfo').textContent=TYPE_NAMES[d.type]+' · mm';
+  $('#hdrName').textContent=d.name||'Untitled joint';
+  if(S.view==='3d')build3D(G);
+  renderDimList()}
+function applyVB(){const v=S.vb;svgEl.setAttribute('viewBox',v.map(fx).join(' '));svgEl.setAttribute('preserveAspectRatio','xMidYMid meet')}
+
+/* pan / zoom / pick */
+/* Gesture model: whenever the number of fingers changes, re-baseline from the CURRENT view and pointer
+   positions, so a pinch that ends with one finger still down never snaps back to a stale start. */
+const ptrs=new Map();let base=null,moved=false;
+function mapOf(vb){const r=svgEl.getBoundingClientRect(),sc=Math.max(vb[2]/r.width,vb[3]/r.height);return{r,sc,ox:(r.width*sc-vb[2])/2,oy:(r.height*sc-vb[3])/2}}
+function toModel(px,py,vb){const m=mapOf(vb);return[vb[0]-m.ox+(px-m.r.left)*m.sc,vb[1]-m.oy+(py-m.r.top)*m.sc]}
+function placeVB(M,px,py,w,h){const r=svgEl.getBoundingClientRect(),sc=Math.max(w/r.width,h/r.height),ox=(r.width*sc-w)/2,oy=(r.height*sc-h)/2;
+  S.vb=[M[0]+ox-(px-r.left)*sc,M[1]+oy-(py-r.top)*sc,w,h];S.userView=true;applyVB()}
+function clampK(vb,k){const f=S.fitVB||vb,w=vb[2]*k;return clamp(w,f[2]/40,f[2]*6)/vb[2]}
+function rebase(){const pts=[...ptrs.values()];base=pts.length?{vb:S.vb.slice(),pts:pts.map(p=>({...p}))}:null}
+svgEl.addEventListener('pointerdown',e=>{ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});if(ptrs.size===1)moved=false;rebase()});
+svgEl.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId)||!base)return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  const cur=[...ptrs.values()];
+  if(cur.length>=2&&base.pts.length>=2){const [a0,b0]=base.pts,[a1,b1]=cur;
+    const m0=[(a0.x+b0.x)/2,(a0.y+b0.y)/2],m1=[(a1.x+b1.x)/2,(a1.y+b1.y)/2];
+    const k=clampK(base.vb,Math.hypot(a0.x-b0.x,a0.y-b0.y)/Math.max(10,Math.hypot(a1.x-b1.x,a1.y-b1.y)));
+    placeVB(toModel(m0[0],m0[1],base.vb),m1[0],m1[1],base.vb[2]*k,base.vb[3]*k);moved=true;return}
+  if(cur.length===1){const p0=base.pts[0],dx=e.clientX-p0.x,dy=e.clientY-p0.y;if(!moved&&Math.hypot(dx,dy)<=4)return;
+    moved=true;if(!svgEl.hasPointerCapture(e.pointerId))svgEl.setPointerCapture(e.pointerId);
+    const M=toModel(p0.x,p0.y,base.vb);placeVB(M,e.clientX,e.clientY,base.vb[2],base.vb[3])}});
+const endPtr=e=>{ptrs.delete(e.pointerId);rebase()};
+svgEl.addEventListener('pointerup',endPtr);svgEl.addEventListener('pointercancel',endPtr);
+function zoomAt(cx,cy,k){const v=S.vb;k=clampK(v,k);placeVB(toModel(cx,cy,v),cx,cy,v[2]*k,v[3]*k);rebase()}
+svgEl.addEventListener('wheel',e=>{e.preventDefault();const d=e.deltaMode===1?e.deltaY*16:e.deltaY;zoomAt(e.clientX,e.clientY,Math.exp(clamp(d,-120,120)*0.0015))},{passive:false});
+svgEl.addEventListener('click',e=>{if(moved||!S.picking)return;const h=e.target.closest('.hit');if(!h)return;onPick({p:h.dataset.p,e:+h.dataset.e})});
+$('#fitBtn').onclick=()=>{S.userView=false;if(S.view==='3d'&&T3.r){T3.rot={x:0.35,y:-0.7};T3.zoom=1;draw3D()}else render()};
+
+function onPick(r){const d=S.doc;
+  if(!S.pick){S.pick=r;$('#pickText').textContent='Now tap a second edge, or the same edge again for its length';render();return}
+  const a=S.pick;S.pick=null;let dim;
+  if(a.p===r.p&&a.e===r.e)dim={k:'len',a,side:1,off:2.2,label:''};
+  else{const A=edgeOf(S.G,a),B=edgeOf(S.G,r);const da=unit(sub(A.B,A.A)),db=unit(sub(B.B,B.A));
+    dim=Math.abs(cross(da,db))<0.03?{k:'dist',a,b:r,side:1,off:2.2,label:''}:{k:'ang',a,b:r,label:''}}
+  if(measure(S.G,dim)==null){toast("Those edges can't be dimensioned together. Try another pair.");}
+  else{d.dims.push(dim);toast(dim.k==='len'?'Length added':dim.k==='dist'?'Distance added':'Angle added')}
+  $('#pickText').textContent='Tap the first edge';touch()}
+function setPicking(on){if(on&&S.doc.locked)return;S.picking=on;S.pick=null;$('#pickBar').hidden=!on;$('#addDimBtn').textContent=on?'Stop adding':'Add dimension';
+  if(on&&S.view==='3d')setView('2d');render()}
+$('#addDimBtn').onclick=()=>setPicking(!S.picking);$('#pickCancel').onclick=()=>setPicking(false);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.picking)setPicking(false)});
+
+/* ---------- 3D ---------- */
+const T3={};
+function init3D(){if(T3.r)return true;if(!window.THREE)return false;const el=$('#view3d');
+  T3.r=new THREE.WebGLRenderer({antialias:true});T3.r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));el.appendChild(T3.r.domElement);
+  T3.scene=new THREE.Scene();T3.scene.background=new THREE.Color(0xf2f4f5);T3.cam=new THREE.PerspectiveCamera(32,1,0.1,1e6);
+  T3.scene.add(new THREE.HemisphereLight(0xffffff,0x7d8c99,0.8));const l1=new THREE.DirectionalLight(0xffffff,0.75);l1.position.set(2,3,4);T3.scene.add(l1);
+  const l2=new THREE.DirectionalLight(0xffffff,0.3);l2.position.set(-3,-1,-2);T3.scene.add(l2);
+  T3.group=new THREE.Group();T3.scene.add(T3.group);T3.rot={x:0.35,y:-0.7};T3.zoom=1;
+  const p3=new Map();let st=null,pz=null;
+  const reb=()=>{const v=[...p3.values()];st=v.length===1?{x:v[0][0],y:v[0][1],r:{...T3.rot}}:null;
+    pz=v.length>=2?{d:Math.hypot(v[0][0]-v[1][0],v[0][1]-v[1][1]),z:T3.zoom}:null};
+  el.addEventListener('pointerdown',e=>{p3.set(e.pointerId,[e.clientX,e.clientY]);el.setPointerCapture(e.pointerId);reb()});
+  el.addEventListener('pointermove',e=>{if(!p3.has(e.pointerId))return;p3.set(e.pointerId,[e.clientX,e.clientY]);
+    if(p3.size===2&&pz){const [a,b]=[...p3.values()];T3.zoom=clamp(pz.z*pz.d/Math.max(10,Math.hypot(a[0]-b[0],a[1]-b[1])),0.2,5);draw3D();return}
+    if(st&&p3.size===1){T3.rot.y=st.r.y+(e.clientX-st.x)*0.008;T3.rot.x=clamp(st.r.x+(e.clientY-st.y)*0.008,-1.5,1.5);draw3D()}});
+  const up=e=>{p3.delete(e.pointerId);reb()};el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  el.addEventListener('wheel',e=>{e.preventDefault();T3.zoom=clamp(T3.zoom*Math.exp(clamp(e.deltaY,-120,120)*0.0012),0.2,5);draw3D()},{passive:false});
+  new ResizeObserver(()=>{if(S.view==='3d')draw3D()}).observe(el);return true}
+function build3D(G){if(!init3D()){toast("The 3D view couldn't load. Check your connection and try again.");setView('2d');return}
+  const g=T3.group;while(g.children.length){const c=g.children.pop();c.geometry&&c.geometry.dispose();c.material&&c.material.dispose()}
+  const b=G.box,cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2,depth=G.m.ext*0.7;T3.ext=G.m.ext;
+  const add3=(pts,color,metal)=>{if(pts.length<3)return;const sh=new THREE.Shape(pts.map(p=>new THREE.Vector2(p[0],p[1])));
+    const geo=new THREE.ExtrudeGeometry(sh,{depth,bevelEnabled:false,curveSegments:1});geo.translate(-cx,-cy,-depth/2);
+    g.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color,metalness:metal,roughness:0.5,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1})));
+    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo,20),new THREE.LineBasicMaterial({color:0x2a3238})))};
+  G.parts.forEach(p=>add3(p.pts,0xa9b3ba,0.45));
+  const tones=[0xc96f24,0xe39a55];
+  G.welds.forEach(w=>{if(S.doc.showPasses&&w.passes.length)w.passes.forEach((q,i)=>add3(q.pts,tones[i%2],0.25));else add3(w.pts,0xc96f24,0.25)});
+  draw3D()}
+function draw3D(){if(!T3.r)return;const el=$('#view3d'),w=el.clientWidth||1,h=el.clientHeight||1;T3.r.setSize(w,h,false);T3.cam.aspect=w/h;T3.cam.updateProjectionMatrix();
+  T3.group.rotation.set(T3.rot.x,T3.rot.y,0);const dist=(T3.ext||100)*2.4*T3.zoom/Math.min(1,w/h);T3.cam.position.set(0,0,dist);T3.cam.lookAt(0,0,0);T3.r.render(T3.scene,T3.cam)}
+function setView(v){S.view=v;$('#v2d').setAttribute('aria-pressed',v==='2d');$('#v3d').setAttribute('aria-pressed',v==='3d');$('#sheet').classList.toggle('is3d',v==='3d');
+  if(v==='3d'){if(S.picking)setPicking(false);build3D(S.G)}}
+$('#v2d').onclick=()=>setView('2d');$('#v3d').onclick=()=>setView('3d');
+
+/* ---------- panels ---------- */
+$$('.tabs button').forEach(b=>b.onclick=()=>{$$('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  $$('.pane').forEach(p=>p.hidden=p.dataset.pane!==b.dataset.tab);if(b.dataset.tab==='library')renderLib()});
+function showRules(){const t=S.doc.type,butt=t!=='fillet',dbl=t==='doubleV'||t==='doubleBevel';
+  const on={butt,fillet:!butt,V:t==='singleV'||t==='doubleV',bevel:t==='singleBevel'||t==='doubleBevel',rf:butt&&t!=='square',dbl:butt&&dbl,single:butt&&!dbl};
+  $$('[data-show]').forEach(el=>{el.hidden=!on[el.dataset.show]})}
+function fillForm(){const d=S.doc;
+  $$('[data-k]').forEach(el=>{const k=el.dataset.k;let v=d[k];if(k==='tags')v=d.tags.join(', ');
+    if(el.type==='checkbox')el.checked=!!v;else if(document.activeElement!==el)el.value=v==null?'':v});
+  $('#f_lock').checked=!!d.locked;$('#g_fm').value=S.prefs.filletMode||'a';
+  $('#globalHint').textContent='Global is set to '+((S.prefs.filletMode||'a')==='a'?'throat a':'leg z');
+  $$('.lockable').forEach(f=>f.disabled=!!d.locked);['#lockNote1','#lockNote2','#lockNote3'].forEach(s=>$(s).hidden=!d.locked);
+  showRules();renderWeldCards();renderAutoList()}
+function renderWeldCards(){const d=S.doc,box=$('#weldCards');if(d.type!=='fillet'){box.innerHTML='';return}
+  const n=d.sides==='both'?2:1;let h='';
+  for(let i=0;i<n;i++){const w=d.welds[i],m=effMode(d,i),val=m==='a'?w.a:w.a*R2;
+    h+=`<div class="weldcard"><div class="head">${i===0?'Arrow side weld':'Other side weld'}</div>
+      <div class="row"><label for="ws${i}">Size ${m}</label><div class="unit" data-u="mm"><input id="ws${i}" type="number" step="0.5" inputmode="decimal" data-w="${i}" data-wf="size" value="${fmt(val)}"></div></div>
+      <div class="row"><label for="wm${i}">Shown as</label><select id="wm${i}" data-w="${i}" data-wf="mode"><option value="inherit">Drawing setting</option><option value="a">Throat a</option><option value="z">Leg z</option></select></div>
+      <div class="row"><label for="wp${i}">Beads per layer<small>e.g. 1,2</small></label><input id="wp${i}" type="text" inputmode="numeric" data-w="${i}" data-wf="passes" value="${esc(w.passes||'')}"></div></div>`}
+  box.innerHTML=h;for(let i=0;i<n;i++)$('#wm'+i).value=d.welds[i].mode}
+$('#weldCards').addEventListener('input',e=>{const el=e.target,i=+el.dataset.w,f=el.dataset.wf;if(isNaN(i))return;const w=S.doc.welds[i];
+  if(f==='size'){const v=num(el.value,NaN);if(!isFinite(v)||v<=0)return;w.a=effMode(S.doc,i)==='a'?v:v/R2}
+  else if(f==='passes')w.passes=el.value;
+  else if(f==='mode'){w.mode=el.value;renderWeldCards()}
+  touch()});
+function renderAutoList(){const d=S.doc,G=S.G||build(d);const L=autoDims(d,G);
+  $('#autoList').innerHTML=L.map(a=>`<label class="check"><input type="checkbox" data-auto="${a.key}" ${d.hideAuto[a.key]?'':'checked'}> ${a.name} <span class="hint" style="display:inline">(${esc(a.label)})</span></label>`).join('')}
+$('#autoList').addEventListener('change',e=>{const k=e.target.dataset.auto;if(!k)return;if(e.target.checked)delete S.doc.hideAuto[k];else S.doc.hideAuto[k]=true;touch()});
+function renderDimList(){const d=S.doc,el=$('#dimList');if(el.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;
+  if(!d.dims.length){el.innerHTML='<div class="empty">No dimensions of your own yet. Use Add dimension and tap edges on the drawing.</div>';return}
+  el.innerHTML=d.dims.map((m,i)=>{const v=S.dimVals[i],ok=v!=null,val=ok?fmt(v)+(m.k==='ang'?'°':''):'edge missing';
+    return`<div class="item dimrow"><span class="k">${m.k==='len'?'Length':m.k==='dist'?'Distance':'Angle'}<br>${val}</span>
+      <input type="text" data-di="${i}" placeholder="Label, e.g. t1" value="${esc(m.label||'')}" aria-label="Dimension label">
+      ${m.k!=='ang'?`<button data-flip="${i}" title="Move to other side">Flip</button>`:'<span></span>'}<button data-del="${i}" title="Delete">Delete</button></div>`}).join('')}
+$('#dimList').addEventListener('input',e=>{const i=e.target.dataset.di;if(i==null)return;S.doc.dims[+i].label=e.target.value;touch(true)});
+$('#dimList').addEventListener('click',e=>{const f=e.target.dataset.flip,x=e.target.dataset.del;
+  if(f!=null){const m=S.doc.dims[+f];m.side=-(m.side||1);touch()}
+  if(x!=null){S.doc.dims.splice(+x,1);touch()}});
+
+const NUMK=['t1','t2','gap','rootFace','angle','bevel','hilo','plateLen','baseW','stemH'];
+document.querySelector('aside').addEventListener('input',e=>{const el=e.target,k=el.dataset.k;if(!k)return;const d=S.doc;
+  if(el.type==='checkbox')d[k]=el.checked;
+  else if(NUMK.includes(k)){const v=num(el.value,NaN);if(!isFinite(v))return;d[k]=v}
+  else if(k==='tags')d.tags=el.value.split(',').map(s=>s.trim()).filter(Boolean);
+  else if(k==='type'){const had=d.dims.length;d.type=el.value;d.dims=[];d.hideAuto={};S.userView=false;
+    if(d.type==='fillet'&&d.t2===d.t1)d.t2=Math.max(1,d.t1-2);
+    if(had)toast('Your own dimensions were cleared for the new weld type');touch();fillForm();return}
+  else d[k]=el.value;
+  touch();if(['sides','filletMode','labels','mirror','showPasses'].includes(k))fillForm();else renderAutoList()});
+$('#f_lock').onchange=e=>{S.doc.locked=e.target.checked;if(S.doc.locked&&S.picking)setPicking(false);touch();fillForm()};
+$('#g_fm').onchange=e=>{S.prefs.filletMode=e.target.value;savePrefs();fillForm();render()};
+
+/* ---------- storage: local working copy + optional cloud sync ---------- */
+let saveT=null;
+function touch(quiet){S.doc.updated=Date.now();S.lib[S.doc.id]=S.doc;clearTimeout(saveT);saveT=setTimeout(persist,500);render()}
+function saveLocal(){try{localStorage.setItem('wjd.lib',JSON.stringify(S.lib));localStorage.setItem('wjd.cur',S.doc.id)}catch(e){}}
+async function persist(){saveLocal();if(S.db&&S.uid){try{await S.db.collection('data/users/'+S.uid).doc(S.doc.id).set(clone(S.doc));setSync('Saved to your account')}
+  catch(e){setSync('Saved on this device. Account sync failed.')}}else setSync('Saved on this device')}
+function savePrefs(){try{localStorage.setItem('wjd.prefs',JSON.stringify(S.prefs))}catch(e){}
+  if(S.db&&S.uid)S.db.collection('data/users/'+S.uid).doc('settings').set({filletMode:S.prefs.filletMode,color:S.prefs.color}).catch(()=>{})}
+function setSync(t){$('#syncNote').textContent=t}
+function loadLocal(){try{const l=JSON.parse(localStorage.getItem('wjd.lib')||'{}');for(const k in l)S.lib[k]=normalize(l[k])}catch(e){}
+  try{Object.assign(S.prefs,JSON.parse(localStorage.getItem('wjd.prefs')||'{}'))}catch(e){}
+  let cur=null;try{cur=localStorage.getItem('wjd.cur')}catch(e){}
+  S.doc=S.lib[cur]||Object.values(S.lib).sort((a,b)=>b.updated-a.updated)[0];
+  if(!S.doc){S.doc=normalize({name:'12 mm single-V butt',tags:['135','butt']});S.lib[S.doc.id]=S.doc}}
+async function initCloud(){if(!window.claude||!window.claude.use)return;
+  try{S.dl=await window.claude.use('downloads')}catch(e){S.dl=null}updateDlUI();
+  let db=null,user=null;try{db=await window.claude.use('db');user=await window.claude.use('user')}catch(e){}
+  if(!db||!user)return;let id=null;try{id=await user.id()}catch(e){}if(!id)return;S.db=db;S.uid=id;
+  try{const col=db.collection('data/users/'+id),snap=await col.get(),remote={};
+    snap.docs.forEach(ds=>{const r=clone(ds.data()||{});if(ds.id==='settings'){if(r.filletMode)S.prefs.filletMode=r.filletMode;return}remote[ds.id]=r});
+    for(const k in remote){const loc=S.lib[k];if(!loc||(remote[k].updated||0)>(loc.updated||0))S.lib[k]=normalize(remote[k])}
+    for(const k in S.lib){if(!remote[k]||(S.lib[k].updated||0)>(remote[k].updated||0))col.doc(k).set(clone(S.lib[k])).catch(()=>{})}
+    if(S.lib[S.doc.id]&&S.lib[S.doc.id]!==S.doc)S.doc=S.lib[S.doc.id];
+    saveLocal();setSync('Synced with your account');fillForm();render();renderLib()}catch(e){setSync('Saved on this device. Account sync unavailable.')}}
+function openDoc(id){if(!S.lib[id])return;if(S.picking)setPicking(false);S.doc=S.lib[id];S.userView=false;saveLocal();fillForm();render();renderLib()}
+$('#newBtn').onclick=()=>{const d=normalize({});d.name='Untitled joint';S.lib[d.id]=d;openDoc(d.id);persist();toast('New drawing started')};
+$('#dupBtn').onclick=()=>{const d=clone(S.doc);d.id=uid();d.name=(S.doc.name||'Joint')+' copy';d.locked=false;d.updated=Date.now();S.lib[d.id]=normalize(d);openDoc(d.id);persist();toast('Duplicated')};
+let delArm=null;
+function renderLib(){const q=$('#search').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const docs=Object.values(S.lib).sort((a,b)=>b.updated-a.updated).filter(d=>{const hay=(d.name+' '+d.tags.join(' ')+' '+TYPE_NAMES[d.type]).toLowerCase();return q.every(t=>hay.includes(t))});
+  $('#libList').innerHTML=docs.length?docs.map(d=>`<div class="item${d.id===S.doc.id?' cur':''}"><div class="t">${esc(d.name||'Untitled joint')}${d.locked?' (locked)':''}</div>
+    <div class="m">${TYPE_NAMES[d.type]} · t1 ${fmt(d.t1)} mm · ${new Date(d.updated).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+    ${d.tags.length?`<div class="tags">${d.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}
+    <div class="acts">${d.id===S.doc.id?'<button disabled>Open now</button>':`<button data-open="${d.id}">Open</button>`}<button data-del="${d.id}">${delArm===d.id?'Confirm delete':'Delete'}</button></div></div>`).join('')
+    :`<div class="empty">${q.length?'No drawings match that search. Try a name or a tag such as 135.':'No drawings yet. Start one with New drawing.'}</div>`}
+$('#search').addEventListener('input',renderLib);
+$('#libList').addEventListener('click',e=>{const o=e.target.dataset.open,x=e.target.dataset.del;if(o){openDoc(o);return}
+  if(x){if(delArm!==x){delArm=x;renderLib();return}delArm=null;delete S.lib[x];if(S.db&&S.uid)S.db.collection('data/users/'+S.uid).doc(x).delete().catch(()=>{});
+    if(x===S.doc.id){const n=Object.values(S.lib).sort((a,b)=>b.updated-a.updated)[0];if(n)S.doc=n;else{S.doc=normalize({});S.lib[S.doc.id]=S.doc}fillForm();render()}
+    saveLocal();renderLib();toast('Drawing deleted')}});
+
+/* ---------- export ---------- */
+function setColour(m){S.prefs.color=m;$('#cColour').setAttribute('aria-pressed',m==='colour');$('#cBW').setAttribute('aria-pressed',m==='bw');savePrefs()}
+$('#cColour').onclick=()=>setColour('colour');$('#cBW').onclick=()=>setColour('bw');
+const safeName=()=>(S.doc.name||'weld-joint').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'weld-joint';
+async function pngBlob(){const G=build(S.doc),sc=makeScene(S.doc,G),b=sc.bounds,k=2400/Math.max(b.x1-b.x0,b.y1-b.y0);
+  const {svg,W,H}=svgString(sc,S.prefs.color||'colour',G,k);const img=new Image();img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);await img.decode();
+  const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);
+  return await new Promise(r=>c.toBlob(r,'image/png'))}
+async function save(filename,data,label){if(!S.dl){toast("Downloads aren't available in this view");return}
+  try{await S.dl.save({filename,data});toast(label+' saved')}catch(e){if(e&&e.code==='declined')return;toast(e&&e.code==='rate_limited'?'A save is already waiting for you to confirm':label+" couldn't be saved")}}
+$('#pngBtn').onclick=async()=>{try{await save(safeName()+'.png',await pngBlob(),'PNG')}catch(e){toast("The image couldn't be created")}};
+$('#svgBtn').onclick=()=>{const G=build(S.doc),sc=makeScene(S.doc,G);save(safeName()+'.svg',svgString(sc,S.prefs.color||'colour',G,null).svg,'SVG')};
+$('#copyBtn').onclick=async()=>{try{const b=await pngBlob();await navigator.clipboard.write([new ClipboardItem({'image/png':b})]);toast('Image copied. Paste it into your document.')}
+  catch(e){toast("Copying isn't allowed here. Use Download PNG instead.")}};
+$('#dxfBtn').onclick=()=>{const G=build(S.doc),sc=makeScene(S.doc,G),dxf=toDXF(sc,G);save(safeName()+'-dxf.zip',zip1(safeName()+'.dxf',new TextEncoder().encode(dxf)),'DXF')};
+function updateDlUI(){const ok=!!S.dl;['#pngBtn','#dxfBtn','#svgBtn'].forEach(s=>$(s).disabled=!ok);$('#dlNote').hidden=ok}
+
+function dxfText(s){return s.replace(/°/g,'%%d').replace(/⌀/g,'%%c').replace(/[^\x20-\x7e%]/g,ch=>'\\U+'+ch.charCodeAt(0).toString(16).toUpperCase().padStart(4,'0'))}
+function toDXF(sc,G){const o=[],w=(c,v)=>{o.push(String(c),String(v))},f=v=>(Math.round(v*10000)/10000).toString();
+  const LAY={OUTLINE:7,HATCH:8,WELD:1,WELD_FILL:1,PASS:1,PASSNUM:7,DIM:5,SYMBOL:7};
+  w(0,'SECTION');w(2,'HEADER');w(9,'$ACADVER');w(1,'AC1009');w(9,'$INSUNITS');w(70,4);w(0,'ENDSEC');
+  w(0,'SECTION');w(2,'TABLES');w(0,'TABLE');w(2,'LTYPE');w(70,1);w(0,'LTYPE');w(2,'CONTINUOUS');w(70,0);w(3,'Solid line');w(72,65);w(73,0);w(40,'0.0');w(0,'ENDTAB');
+  w(0,'TABLE');w(2,'LAYER');w(70,Object.keys(LAY).length);for(const n in LAY){w(0,'LAYER');w(2,n);w(70,0);w(62,LAY[n]);w(6,'CONTINUOUS')}w(0,'ENDTAB');w(0,'ENDSEC');
+  w(0,'SECTION');w(2,'ENTITIES');
+  const line=(a,b,l)=>{w(0,'LINE');w(8,l);w(10,f(a[0]));w(20,f(a[1]));w(30,0);w(11,f(b[0]));w(21,f(b[1]));w(31,0)};
+  for(const it of sc.items){
+    if(it.k==='segs'){it.segs.forEach(s=>line(s[0],s[1],it.layer));continue}
+    if(it.k==='text'){const h=it.anchor==='middle'?1:it.anchor==='end'?2:0,v=it.va==='mid'?2:0;
+      w(0,'TEXT');w(8,it.layer);w(10,f(it.x));w(20,f(it.y));w(30,0);w(40,f(it.h));w(1,dxfText(it.s));if(it.rot)w(50,f(it.rot));
+      if(h||v){w(72,h);w(11,f(it.x));w(21,f(it.y));w(31,0);if(v)w(73,v)}continue}
+    const P=it.pts;
+    if(it.fill==='arrow'&&P.length===3){w(0,'SOLID');w(8,it.layer);[[10,20,30],[11,21,31],[12,22,32],[13,23,33]].forEach((c,i)=>{const p=P[Math.min(i,2)];w(c[0],f(p[0]));w(c[1],f(p[1]));w(c[2],0)});continue}
+    if(P.length===2&&!it.closed){line(P[0],P[1],it.layer);continue}
+    w(0,'POLYLINE');w(8,it.layer);w(66,1);w(10,0);w(20,0);w(30,0);w(70,it.closed?1:0);
+    P.forEach(p=>{w(0,'VERTEX');w(8,it.layer);w(10,f(p[0]));w(20,f(p[1]));w(30,0)});w(0,'SEQEND');w(8,it.layer);
+    if(it.fill==='solid')hatchLines(P,45,G.m.hs*0.22).forEach(s=>line(s[0],s[1],'WELD_FILL'))}
+  w(0,'ENDSEC');w(0,'EOF');return o.join('\r\n')+'\r\n'}
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+function zip1(name,data){const nm=new TextEncoder().encode(name),crc=crc32(data),now=new Date();
+  const dt=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate(),tm=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1);
+  const lh=new Uint8Array(30+nm.length),a=new DataView(lh.buffer);
+  a.setUint32(0,0x04034b50,true);a.setUint16(4,20,true);a.setUint16(6,0,true);a.setUint16(8,0,true);a.setUint16(10,tm,true);a.setUint16(12,dt,true);
+  a.setUint32(14,crc,true);a.setUint32(18,data.length,true);a.setUint32(22,data.length,true);a.setUint16(26,nm.length,true);a.setUint16(28,0,true);lh.set(nm,30);
+  const ch=new Uint8Array(46+nm.length),c=new DataView(ch.buffer);
+  c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0,true);c.setUint16(10,0,true);c.setUint16(12,tm,true);c.setUint16(14,dt,true);
+  c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,nm.length,true);c.setUint16(30,0,true);c.setUint16(32,0,true);
+  c.setUint16(34,0,true);c.setUint16(36,0,true);c.setUint32(38,0,true);c.setUint32(42,0,true);ch.set(nm,46);
+  const en=new Uint8Array(22),e=new DataView(en.buffer);e.setUint32(0,0x06054b50,true);e.setUint16(8,1,true);e.setUint16(10,1,true);
+  e.setUint32(12,ch.length,true);e.setUint32(16,lh.length+data.length,true);
+  return new Blob([lh,data,ch,en],{type:'application/zip'})}
+
+/* ---------- toast ---------- */
+let toastT;function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),2600)}
+
+/* ---------- start ---------- */
+loadLocal();setColour(S.prefs.color||'colour');fillForm();render();renderLib();updateDlUI();
+new ResizeObserver(()=>{if(S.view==='2d')applyVB()}).observe(svgEl);
+initCloud();
+</script>
+</body>
+</html>
